@@ -1,1 +1,201 @@
+---
+# Please Refer to .md file before running this playbook for extra variables that needed to be passed for this playbook
+- name: redeploy latest artifact to windows iis server
+  hosts: windows_server
+  vars:
+    deploy_root: "C:\\inetpub\\wwwroot\\{{ site_name }}"
+    site_base_path: "C:\\Users\\ansible\\Downloads\\sites"
+    artifact_dir: "{{ site_base_path }}\\{{ project_name }}\\artifacts"
+    backup_dir: "{{ site_base_path }}\\{{ project_name }}\\backup"
+  tasks:
+    - name: ensure all required directory exist
+      ansible.windows.win_file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ deploy_root }}"
+        - "{{ artifact_dir }}"
+        - "{{ backup_dir }}"
 
+    - name: fetch latest artifact using url and store response
+      ansible.windows.win_uri:
+        url: "{{ nexus_url }}"
+        method: HEAD
+      register: response
+
+    - name: setting artifact name from url
+      set_fact:
+        artifact_name: "{{ response.response_uri | basename }}"
+
+    - name: download latest artifact using response variable
+      ansible.windows.win_get_url:
+        url: "{{ response.response_uri }}"
+        dest: "{{ artifact_dir }}\\{{ artifact_name }}"
+
+    - name: find list of all artifacts of this project and store it is variable
+      ansible.windows.win_find:
+        paths: "{{ artifact_dir }}"
+        patterns: "{{ project_name }}-*.zip"
+      register: all_win_artifacts
+
+    - name: creating iis application pool
+      community.windows.win_iis_webapppool:
+        name: "{{ site_name }}"
+        state: started
+
+    - name: creating iis webserver
+      community.windows.win_iis_website:
+        name: "{{ site_name }}"
+        state: started
+        port: "{{ host_port | default(80) }}"
+        ip: "{{ host_ip | default('*') }}"
+        hostname: "{{ host_name | default(omit) }}"
+        application_pool: "{{ site_name }}"
+        physical_path: "{{ deploy_root }}"
+      register: website
+
+    - name: add HTTPS binding if port is defined
+      community.windows.win_iis_webbinding:
+        name: "{{ site_name }}"
+        protocol: https
+        port: "{{ https_port | default(443) }}"
+        ip: "{{ host_ip | default('*') }}"
+        host_header: "{{ host_name | default(omit) }}"
+        certificate_hash: "{{ ssl_cert_thumbprint }}"
+        state: present
+      when:
+        - ssl_cert_thumbprint is defined
+
+    - name: stopping running site before unzipping new content
+      community.windows.win_iis_website:
+        name: "{{ site_name }}"
+        state: stopped
+
+    - name: stopping running application pool
+      community.windows.win_iis_webapppool:
+        name: "{{ site_name }}"
+        state: stopped
+
+    - name: waiting for 5sec for site to stop properly
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: check if web.config exist or not
+      ansible.windows.win_stat:
+        path: "{{ deploy_root }}\\web.config"
+      register: web_config_stat
+
+    - name: copy web.config to backup location
+      ansible.windows.win_copy:
+        src: "{{ deploy_root }}\\web.config"
+        dest: "{{ backup_dir }}"
+        remote_src: true
+      when: web_config_stat.stat.exists
+
+    - name: deployment with rollback
+      block:
+        - name: remove previous artifact from root
+          ansible.windows.win_file:
+            path: "{{ deploy_root }}"
+            state: absent
+
+        - name: create empty directory at same root
+          ansible.windows.win_file:
+            path: "{{ deploy_root }}"
+            state: directory
+
+        - name: unzip latest at root
+          community.windows.win_unzip:
+            src: "{{ (all_win_artifacts.files | sort(attribute='lastwritetime') | reverse)[0].path }}"
+            dest: "{{ deploy_root }}"
+            remote_src: true
+
+        - name: check if backup web.config exist
+          ansible.windows.win_stat:
+            path: "{{ backup_dir }}\\web.config"
+          register: backup_webconfig_stat
+
+        - name: readd web.config
+          ansible.windows.win_copy:
+            src: "{{ backup_dir }}\\web.config"
+            dest: "{{ deploy_root }}"
+            remote_src: true
+          when: backup_webconfig_stat.stat.exists
+
+        - name: restarting application pool
+          community.windows.win_iis_webapppool:
+            name: "{{ site_name }}"
+            state: started
+
+        - name: restarting site
+          community.windows.win_iis_website:
+            name: "{{ site_name }}"
+            state: started
+
+        - name: waiting 10sec for website to start properly
+          pause:
+            seconds: 10
+
+        - name: check site health
+          ansible.windows.win_uri:
+            url: "{{ site_url }}"
+            status_code: "{{ expected_status_code | default(404) }}"
+      rescue:
+        - name: stopping running site before rollback
+          community.windows.win_iis_website:
+            name: "{{ site_name }}"
+            state: stopped
+
+        - name: stopping running application pool before rollback
+          community.windows.win_iis_webapppool:
+            name: "{{ site_name }}"
+            state: stopped
+
+        - name: waiting for 3sec before rollback
+          pause:
+            seconds: 3
+
+        - name: remove failed deployment
+          ansible.windows.win_file:
+            path: "{{ deploy_root }}"
+            state: absent
+
+        - name: recreate deployment root
+          ansible.windows.win_file:
+            path: "{{ deploy_root }}"
+            state: directory
+
+        - name: rollback previous stable artifact
+          community.windows.win_unzip:
+            src: "{{ (all_win_artifacts.files | sort(attribute='lastwritetime') | reverse)[1].path }}"
+            dest: "{{ deploy_root }}"
+            remote_src: true
+
+        - name: restore web.config after rollback
+          ansible.windows.win_copy:
+            src: "{{ backup_dir }}\\web.config"
+            dest: "{{ deploy_root }}"
+            remote_src: true
+          when: backup_webconfig_stat.stat.exists
+
+        - name: restarting application pool after rollback
+          community.windows.win_iis_webapppool:
+            name: "{{ site_name }}"
+            state: started
+
+        - name: restarting site after rollback
+          community.windows.win_iis_website:
+            name: "{{ site_name }}"
+            state: started
+
+        - name: remove failed artifact from artifacts
+          ansible.windows.win_file:
+            path: "{{ (all_win_artifacts.files | sort(attribute='lastwritetime') | reverse)[0].path }}"
+            state: absent
+
+    - name: Remove old artifacts if more than 3 is there
+      ansible.windows.win_file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ (all_win_artifacts.files | sort(attribute='lastwritetime') | reverse)[2:] }}"
+      when: all_win_artifacts.matched > 3
