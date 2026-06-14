@@ -1,2 +1,2 @@
 # dotnet-iis-deployment
-Enterprise CI/CD pipeline for IIS-hosted .NET applications using Jenkins, Ansible, SonarQube, and Nexus with reusable deployment automation.
+CI/CD pipeline for .NET application using Jenkins, SonarQube, Nexus and automated deployment on IIS using Ansible.
