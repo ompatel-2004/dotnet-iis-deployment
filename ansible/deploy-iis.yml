@@ -1,6 +1,4 @@
----
-# Please Refer to .md file before running this playbook for extra variables that needed to be passed for this playbook
-- name: redeploy latest artifact to windows iis server
+- name: Deployment Playbook
   hosts: windows_server
   vars:
     deploy_root: "C:\\inetpub\\wwwroot\\{{ site_name }}"
