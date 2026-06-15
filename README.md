@@ -27,8 +27,7 @@ The pipeline automates:
 - In addition to CI/CD automation, SQL Server environments were configured using SQL Server Management Studio (SSMS) and SQL Server Configuration Manager.
 
 - Database access and permissions were managed by assigning: - DB Owner privileges to the Data Team - Read, Write, and Execute permissions to Dev and QA teams
-
-
+          
 
 # Technologies Used
 
