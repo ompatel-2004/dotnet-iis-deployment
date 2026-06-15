@@ -157,12 +157,12 @@ If deployment validation fails, the playbook automatically restores the previous
 
   # Pipeline Execution
 
-![Jenkins Pipeline](screenshots/jenkins-View.png)
+![Jenkins Pipeline](screenshots/jenkins-view.png)
 
 # SonarQube Analysis
 
-![SonarQube Dashboard](screenshots/sonarqube-dashboard.png)
+![SonarQube Dashboard](screenshots/sonarqube.png)
 
 # Nexus Artifact Repository
 
-![Nexus Repository](screenshots/nexus-artifact.png)
+![Nexus Repository](screenshots/nexus.png)
