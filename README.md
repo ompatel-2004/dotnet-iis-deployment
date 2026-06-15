@@ -157,7 +157,7 @@ If deployment validation fails, the playbook automatically restores the previous
 
   # Pipeline Execution
 
-![Jenkins Pipeline](screenshots/jenkins-stage-view.png)
+![Jenkins Pipeline](screenshots/jenkins-stages.png)
 
 # SonarQube Analysis
 
