@@ -262,33 +262,75 @@ Deployment directory management
 
 Deployment automation was executed remotely on Windows IIS servers using WinRM from the Ubuntu Ansible control node.
 
-## Preserved Configuration Handling
 
-During deployment, important runtime configuration files were preserved to prevent loss of environment-specific settings.
+# Preserved Configuration & Log Retention Strategy
 
-### Preserved Files
+During deployment, important runtime configuration files and application logs were preserved to prevent loss of environment-specific settings and operational logs.
 
-web.config
+## Preserved Files
 
-appsettings.Development.json
+- web.config
 
-appsettings.QA.json
+- appsettings.Development.json
 
-Logs directory
+- appsettings.QA.json
 
-### The playbook automatically:
+- Logs directory
 
-Backed up important files
+## Deployment Preservation Workflow
 
-Removed old deployment files
+The deployment playbook automatically:
 
-Extracted latest artifacts
+1. Backed up important configuration files
 
-Restored preserved configurations
+2. Preserved application logs
 
-Restarted IIS services
+3. Removed old deployment files
 
-This ensured deployment consistency without losing environment-specific configurations.
+4. Extracted the latest deployment artifact
+
+5. Restored preserved configurations
+
+6. Restarted IIS services
+
+This ensured deployment consistency without losing environment-specific runtime configurations.
+
+---
+
+# Automated Log Retention Management
+
+After discussions during daily stand-up meetings, environment-specific log retention strategies were implemented for Dev and QA environments.
+
+## Retention Policy
+
+| Environment | Log Retention |
+
+| Dev | 7 Days |
+
+| QA | 15 Days |
+
+## Log Cleanup Automation
+
+Automated cleanup scripts were configured using Windows Task Scheduler to manage old log files.
+
+### Workflow
+
+- Log cleanup tasks executed automatically on scheduled intervals
+
+- Older logs exceeding retention limits were deleted automatically
+
+- New logs continued to be generated without manual cleanup
+
+- Storage utilization was managed efficiently
+
+### Example
+
+For the Dev environment:
+- Latest 7 days of logs were retained
+
+- When new logs were generated on the 8th day, the oldest log files were automatically removed
+
+The same automated retention logic was implemented for the QA environment with a 15-day retention policy.
 
 
 # Rollback Strategy 
