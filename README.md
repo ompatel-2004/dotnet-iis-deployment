@@ -181,7 +181,7 @@ Deployment automation is executed from an Ubuntu-based Jenkins agent using reusa
 
 After deployment, automated health validation is performed to verify application accessibility and deployment success.
 
-* Activities
+*Activities
 - Endpoint verification
 - HTTP status validation
 - Deployment confirmation
@@ -192,7 +192,7 @@ After deployment, automated health validation is performed to verify application
 
 If deployment validation fails, the playbook automatically restores the previously stable artifact version.
 
-* Activities
+*Activities
 - Automatic rollback execution
 - Previous artifact restoration
 - Failed artifact cleanup
